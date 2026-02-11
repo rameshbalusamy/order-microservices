@@ -1,0 +1,623 @@
+{
+  "info": {
+    "name": "Order Microservices SAGA",
+    "_postman_id": "order-ms-saga-collection",
+    "description": "Complete API collection for testing Order Management Microservices with SAGA pattern",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order - Success Scenario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Order ID is generated\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.orderId).to.exist;",
+                  "    pm.environment.set(\"orderId\", jsonData.orderId);",
+                  "});",
+                  "",
+                  "pm.test(\"Initial status is PENDING\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"PENDING\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"CUST-001\",\n  \"customerEmail\": \"john.doe@example.com\",\n  \"totalAmount\": 299.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-LAPTOP-001\",\n      \"productName\": \"Dell XPS 15 Laptop\",\n      \"quantity\": 1,\n      \"price\": 299.99\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/orders",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "orders"]
+            },
+            "description": "Creates a new order that will go through the SAGA flow"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order - Multiple Items",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"CUST-002\",\n  \"customerEmail\": \"jane.smith@example.com\",\n  \"totalAmount\": 549.97,\n  \"items\": [\n    {\n      \"productId\": \"PROD-MONITOR-001\",\n      \"productName\": \"4K Monitor 27inch\",\n      \"quantity\": 2,\n      \"price\": 199.99\n    },\n    {\n      \"productId\": \"PROD-KEYBOARD-001\",\n      \"productName\": \"Mechanical Keyboard\",\n      \"quantity\": 1,\n      \"price\": 149.99\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/orders",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "orders"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Order has valid status\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var validStatuses = [\"PENDING\", \"PAYMENT_PROCESSING\", \"PAYMENT_COMPLETED\", \"INVENTORY_RESERVING\", \"INVENTORY_RESERVED\", \"NOTIFYING\", \"COMPLETED\", \"PAYMENT_FAILED\", \"INVENTORY_FAILED\", \"CANCELLED\"];",
+                  "    pm.expect(validStatuses).to.include(jsonData.status);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/api/orders/{{orderId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "orders", "{{orderId}}"]
+            },
+            "description": "Retrieves the current status of an order. Use the orderId from the create order response."
+          },
+          "response": []
+        },
+        {
+          "name": "Stream Order Status (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/orders/{{orderId}}/stream",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "orders", "{{orderId}}", "stream"]
+            },
+            "description": "Server-Sent Events endpoint for real-time order status updates. Note: This is best tested in a browser or with curl."
+          },
+          "response": []
+        }
+      ],
+      "description": "Order management endpoints"
+    },
+    {
+      "name": "Testing Scenarios",
+      "item": [
+        {
+          "name": "Scenario 1: Happy Path",
+          "item": [
+            {
+              "name": "Step 1: Create Order",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "pm.environment.set(\"scenario1_orderId\", jsonData.orderId);",
+                      "pm.test(\"Order created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"CUST-SCENARIO1\",\n  \"customerEmail\": \"scenario1@test.com\",\n  \"totalAmount\": 99.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-TEST-001\",\n      \"productName\": \"Test Product\",\n      \"quantity\": 1,\n      \"price\": 99.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            },
+            {
+              "name": "Step 2: Wait 3 seconds",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "setTimeout(function(){}, 3000);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/actuator/health",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["actuator", "health"]
+                }
+              }
+            },
+            {
+              "name": "Step 3: Verify Completed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Order completed successfully\", function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql(\"COMPLETED\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/api/orders/{{scenario1_orderId}}",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders", "{{scenario1_orderId}}"]
+                }
+              }
+            }
+          ],
+          "description": "Test the happy path where all services succeed"
+        },
+        {
+          "name": "Scenario 2: Multiple Orders Load Test",
+          "item": [
+            {
+              "name": "Create Order 1",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"LOAD-TEST-001\",\n  \"customerEmail\": \"load1@test.com\",\n  \"totalAmount\": 199.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-LOAD-001\",\n      \"productName\": \"Load Test Product 1\",\n      \"quantity\": 1,\n      \"price\": 199.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            },
+            {
+              "name": "Create Order 2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"LOAD-TEST-002\",\n  \"customerEmail\": \"load2@test.com\",\n  \"totalAmount\": 299.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-LOAD-002\",\n      \"productName\": \"Load Test Product 2\",\n      \"quantity\": 2,\n      \"price\": 149.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            },
+            {
+              "name": "Create Order 3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"LOAD-TEST-003\",\n  \"customerEmail\": \"load3@test.com\",\n  \"totalAmount\": 399.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-LOAD-003\",\n      \"productName\": \"Load Test Product 3\",\n      \"quantity\": 1,\n      \"price\": 399.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            }
+          ],
+          "description": "Create multiple orders to test system under load"
+        },
+        {
+          "name": "Scenario 3: Payment Failure (SAGA Compensation)",
+          "item": [
+            {
+              "name": "Create 10 Orders (1 will likely fail)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Run this 10 times to trigger payment failure (10% failure rate)",
+                      "var jsonData = pm.response.json();",
+                      "pm.environment.set(\"lastOrderId\", jsonData.orderId);",
+                      "console.log(\"Created order: \" + jsonData.orderId + \" with status: \" + jsonData.status);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"CUST-FAIL-TEST\",\n  \"customerEmail\": \"failtest@example.com\",\n  \"totalAmount\": 599.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-FAIL-001\",\n      \"productName\": \"Payment Test Product\",\n      \"quantity\": 1,\n      \"price\": 599.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            },
+            {
+              "name": "Wait 3 seconds",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "setTimeout(function(){}, 3000);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/actuator/health",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["actuator", "health"]
+                }
+              }
+            },
+            {
+              "name": "Check Last Order Status",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "console.log(\"Order Status: \" + jsonData.status);",
+                      "// Should be either COMPLETED or CANCELLED (if payment failed)",
+                      "pm.test(\"Order reached final state\", function () {",
+                      "    pm.expect(['COMPLETED', 'CANCELLED', 'PAYMENT_FAILED']).to.include(jsonData.status);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/api/orders/{{lastOrderId}}",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders", "{{lastOrderId}}"]
+                }
+              }
+            }
+          ],
+          "description": "Test payment failures and verify no compensation is triggered (since inventory wasn't reserved)"
+        },
+        {
+          "name": "Scenario 4: Inventory Failure (SAGA Compensation)",
+          "item": [
+            {
+              "name": "Create 20 Orders (1 will likely fail at inventory)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "pm.environment.set(\"inventoryTestOrderId\", jsonData.orderId);",
+                      "console.log(\"Created order: \" + jsonData.orderId);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"CUST-INVENTORY-TEST\",\n  \"customerEmail\": \"inventorytest@example.com\",\n  \"totalAmount\": 799.99,\n  \"items\": [\n    {\n      \"productId\": \"PROD-INV-001\",\n      \"productName\": \"Inventory Test Product\",\n      \"quantity\": 1,\n      \"price\": 799.99\n    }\n  ]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/orders",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders"]
+                }
+              }
+            },
+            {
+              "name": "Wait 5 seconds for SAGA",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "setTimeout(function(){}, 5000);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/actuator/health",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["actuator", "health"]
+                }
+              }
+            },
+            {
+              "name": "Verify Order Status - Should be CANCELLED if inventory failed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "console.log(\"Order Status: \" + jsonData.status);",
+                      "console.log(\"If CANCELLED: Payment was refunded (SAGA compensation worked!)\");",
+                      "console.log(\"If COMPLETED: Inventory succeeded\");",
+                      "",
+                      "pm.test(\"Order reached final state\", function () {",
+                      "    pm.expect(['COMPLETED', 'CANCELLED', 'INVENTORY_FAILED']).to.include(jsonData.status);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/api/orders/{{inventoryTestOrderId}}",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "8080",
+                  "path": ["api", "orders", "{{inventoryTestOrderId}}"]
+                }
+              }
+            }
+          ],
+          "description": "Test inventory failures and verify SAGA compensation (payment refund) occurs"
+        }
+      ]
+    },
+    {
+      "name": "Monitoring",
+      "item": [
+        {
+          "name": "Order Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Payment Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8081",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Inventory Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8082",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Notification Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8083",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Order Service Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/actuator/prometheus",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["actuator", "prometheus"]
+            }
+          }
+        }
+      ],
+      "description": "Health checks and metrics endpoints"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scenario1_orderId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

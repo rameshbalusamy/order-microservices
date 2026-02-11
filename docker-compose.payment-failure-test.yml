@@ -1,0 +1,15 @@
+# docker-compose.payment-failure-test.yml
+# Use this to test payment failures (no compensation needed)
+#
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.payment-failure-test.yml up --build
+
+version: '3.8'
+
+services:
+  payment-service:
+    environment:
+      - PAYMENT_FAILURE_RATE=50  # Payment fails 50% of the time
+  
+  inventory-service:
+    environment:
+      - INVENTORY_FAILURE_RATE=0  # Inventory NEVER fails

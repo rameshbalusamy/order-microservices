@@ -1,0 +1,470 @@
+openapi: 3.0.3
+info:
+  title: Order Management Microservices API
+  description: |
+    Comprehensive API specification for Order Management System with SAGA pattern implementation.
+    This includes Order, Payment, Inventory, and Notification microservices.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@orderms.com
+
+servers:
+  - url: http://localhost:8080
+    description: Order Service
+  - url: http://localhost:8081
+    description: Payment Service
+  - url: http://localhost:8082
+    description: Inventory Service
+  - url: http://localhost:8083
+    description: Notification Service
+
+tags:
+  - name: Orders
+    description: Order management operations
+  - name: Payments
+    description: Payment processing operations
+  - name: Inventory
+    description: Inventory management operations
+  - name: Notifications
+    description: Notification operations
+
+paths:
+  # ORDER SERVICE ENDPOINTS
+  /api/orders:
+    post:
+      tags:
+        - Orders
+      summary: Create a new order
+      description: Creates a new order and triggers the SAGA orchestration
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/{orderId}:
+    get:
+      tags:
+        - Orders
+      summary: Get order by ID
+      description: Retrieves order details by order ID
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/{orderId}/stream:
+    get:
+      tags:
+        - Orders
+      summary: Stream order status updates
+      description: Server-Sent Events endpoint for real-time order status updates
+      operationId: streamOrderStatus
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream of order status updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # PAYMENT SERVICE ENDPOINTS
+  /api/payments:
+    post:
+      tags:
+        - Payments
+      summary: Process payment
+      description: Processes payment for an order
+      operationId: processPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Payment failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/payments/{paymentId}/refund:
+    post:
+      tags:
+        - Payments
+      summary: Refund payment
+      description: Refunds a previously processed payment
+      operationId: refundPayment
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment refunded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          description: Payment not found
+
+  # INVENTORY SERVICE ENDPOINTS
+  /api/inventory/reserve:
+    post:
+      tags:
+        - Inventory
+      summary: Reserve inventory
+      description: Reserves inventory items for an order
+      operationId: reserveInventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryReservationRequest'
+      responses:
+        '200':
+          description: Inventory reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryResponse'
+        '400':
+          description: Insufficient inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/inventory/release:
+    post:
+      tags:
+        - Inventory
+      summary: Release inventory
+      description: Releases previously reserved inventory
+      operationId: releaseInventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryReleaseRequest'
+      responses:
+        '200':
+          description: Inventory released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryResponse'
+
+  # NOTIFICATION SERVICE ENDPOINTS
+  /api/notifications/send:
+    post:
+      tags:
+        - Notifications
+      summary: Send notification
+      description: Sends notification to customer
+      operationId: sendNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      responses:
+        '200':
+          description: Notification sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+
+components:
+  schemas:
+    CreateOrderRequest:
+      type: object
+      required:
+        - customerId
+        - items
+        - totalAmount
+      properties:
+        customerId:
+          type: string
+          example: "CUST-001"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        totalAmount:
+          type: number
+          format: double
+          example: 299.99
+        customerEmail:
+          type: string
+          format: email
+          example: "customer@example.com"
+
+    OrderItem:
+      type: object
+      required:
+        - productId
+        - quantity
+        - price
+      properties:
+        productId:
+          type: string
+          example: "PROD-001"
+        productName:
+          type: string
+          example: "Laptop"
+        quantity:
+          type: integer
+          example: 2
+        price:
+          type: number
+          format: double
+          example: 149.99
+
+    OrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+          example: "ORD-123456"
+        customerId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        totalAmount:
+          type: number
+          format: double
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PAYMENT_PROCESSING
+            - PAYMENT_COMPLETED
+            - INVENTORY_RESERVING
+            - INVENTORY_RESERVED
+            - NOTIFYING
+            - COMPLETED
+            - PAYMENT_FAILED
+            - INVENTORY_FAILED
+            - CANCELLED
+          example: "PENDING"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaymentRequest:
+      type: object
+      required:
+        - orderId
+        - amount
+        - customerId
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: number
+          format: double
+        customerId:
+          type: string
+        paymentMethod:
+          type: string
+          example: "CREDIT_CARD"
+
+    PaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          example: "PAY-789012"
+        orderId:
+          type: string
+        amount:
+          type: number
+          format: double
+        status:
+          type: string
+          enum:
+            - PENDING
+            - COMPLETED
+            - FAILED
+            - REFUNDED
+        transactionId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    InventoryReservationRequest:
+      type: object
+      required:
+        - orderId
+        - items
+      properties:
+        orderId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+
+    InventoryReleaseRequest:
+      type: object
+      required:
+        - orderId
+        - items
+      properties:
+        orderId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+
+    InventoryResponse:
+      type: object
+      properties:
+        reservationId:
+          type: string
+        orderId:
+          type: string
+        status:
+          type: string
+          enum:
+            - RESERVED
+            - RELEASED
+            - FAILED
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    NotificationRequest:
+      type: object
+      required:
+        - orderId
+        - customerId
+        - type
+        - message
+      properties:
+        orderId:
+          type: string
+        customerId:
+          type: string
+        customerEmail:
+          type: string
+        type:
+          type: string
+          enum:
+            - ORDER_PLACED
+            - PAYMENT_SUCCESS
+            - PAYMENT_FAILED
+            - ORDER_COMPLETED
+            - ORDER_CANCELLED
+        message:
+          type: string
+
+    NotificationResponse:
+      type: object
+      properties:
+        notificationId:
+          type: string
+        orderId:
+          type: string
+        status:
+          type: string
+          enum:
+            - SENT
+            - FAILED
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
