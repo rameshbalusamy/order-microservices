@@ -45,7 +45,7 @@
      ┌───────────────┼───────────────────────────────────────┼──────────────┐
      │               │                                       │              │
      │   Topics:     │                                       │              │
-     │   • order-created           • inventory-reserved     │              │
+     │   • order-created           •   │              │
      │   • payment-completed       • inventory-failed       │              │
      │   • payment-failed          • notification-sent      │              │
      │   • refund-payment          • payment-refunded       │              │
